@@ -145,7 +145,8 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
     dls = get_dls(path, size, bs=2)
     nClasses = numClasses(path)
     learn = getLearner(model, backbone, nClasses, path, dls)
-    learn.load(model + '_' + backbone)
+    # learn.load(model + '_' + backbone)
+    learn.load(model+'_'+backbone)
 
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
     i = path.rfind(os.sep)
@@ -325,11 +326,11 @@ def getModel(model,backbone,numClasses):
 def getLearner(model,backbone,numClasses,path,dls):
     if numClasses > 2:
         metric = [DiceMulti(), JaccardCoeffMulti(), foreground_acc]
-        save = SaveModelCallback(monitor='dice_multi', fname='model-' + model)
+        save = SaveModelCallback(monitor='dice_multi', fname=model+'_'+backbone)
         early = EarlyStoppingCallback(monitor='dice_multi', patience=5)
     else:
         metric = [Dice(), JaccardCoeff(), foreground_acc]
-        save = SaveModelCallback(monitor='dice', fname='model-' + model)
+        save = SaveModelCallback(monitor='dice', fname=model+'_'+backbone)
         early = EarlyStoppingCallback(monitor='dice', patience=5)
     if model=='U-Net':
         learn = get_segmentation_learner(dls=dls, number_classes=numClasses, segmentation_type="Semantic Segmentation",
