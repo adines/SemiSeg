@@ -52,9 +52,9 @@ def dataDistillation(baseModel, baseBackbone, targetModel, targetBackbone, trans
         # Train base learner
         print("Start of target model training")
         train_learner(learn2, 50, freeze_epochs=2)
-        learn2.save(targetModel)
-        shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '.pth',
-                    outputPath + os.sep + 'target_' + targetModel + '.pth')
+        learn2.save(targetModel + '_' + targetBackbone)
+        shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '_' + targetBackbone + '.pth',
+                    outputPath + os.sep + 'target_' + targetModel + '_' + targetBackbone + '.pth')
         shutil.rmtree(path + '_tmp')
 
         del learn2
@@ -80,7 +80,6 @@ def modelDistillation(baseModels, baseBackbones, targetModel, targetBackbone, pa
 
 
         # Load base model
-        learners=[]
         print("Start of base models training")
         for i,baseModel in enumerate(baseModels):
             dls = get_dls(path, size, bs=bs)
@@ -89,22 +88,25 @@ def modelDistillation(baseModels, baseBackbones, targetModel, targetBackbone, pa
 
             # Train base learner
             train_learner(learn, 50, freeze_epochs=2)
-            # learn.fine_tune(50, freeze_epochs=2)
-            learn.save(baseModel)
+            learn.save(baseModel+'_'+baseBackbones[i])
             if not os.path.exists(outputPath):
                 os.makedirs(outputPath)
-            shutil.copy(path + os.sep + 'models' + os.sep + baseModel + '.pth',
-                        outputPath + os.sep + 'base_' + baseModel + '.pth')
-            learners.append(learn)
+            shutil.copy(path + os.sep + 'models' + os.sep + baseModel + '_' + baseBackbones[i] + '.pth',
+                        outputPath + os.sep + 'base_' + baseModel + '_' + baseBackbones[i] + '.pth')
+
+            del learn
+            del dls
+            gc.collect()
+            torch.cuda.empty_cache()
 
 
         # supervised method
         print("Start of annotation")
-        omniModel(path, learners,size)
+        omniModel(path, baseModels, baseBackbones, size)
         print("End of annotation")
 
         # Load new images
-        dls2 = get_dls(path, size, bs=bs)
+        dls2 = get_dls(path + '_tmp', size, bs=bs)
 
         # Load base model
         learn2 = getLearner(targetModel, targetBackbone, nClasses, path + '_tmp', dls2)
@@ -113,10 +115,14 @@ def modelDistillation(baseModels, baseBackbones, targetModel, targetBackbone, pa
         print("Start of target model training")
         train_learner(learn2, 50, freeze_epochs=2)
         # learn2.fine_tune(50, freeze_epochs=2)
-        learn2.save(targetModel)
-        shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '.pth',
-                    outputPath + os.sep + 'target_' + targetModel + '.pth')
+        learn2.save(targetModel + '_' + targetBackbone)
+        shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '_' + targetBackbone + '.pth',
+                    outputPath + os.sep + 'target_' + targetModel + '_' + targetBackbone + '.pth')
         shutil.rmtree(path + '_tmp')
+        del learn2
+        del dls2
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 def modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone, transforms, path, outputPath, bs=32, size=(480,640)):
@@ -134,7 +140,6 @@ def modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone
         nClasses = numClasses(path)
 
         # Load images
-        learners=[]
         print("Start of base models training")
         for i,baseModel in enumerate(baseModels):
             dls = get_dls(path, size, bs=bs)
@@ -143,20 +148,23 @@ def modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone
             # Train base learner
             train_learner(learn, 50, freeze_epochs=2)
             # learn.fine_tune(50, freeze_epochs=2)
-            learn.save(baseModel)
+            learn.save(baseModel + '_' + baseBackbones[i])
             if not os.path.exists(outputPath):
                 os.makedirs(outputPath)
-            shutil.copy(path + os.sep + 'models' + os.sep + baseModel + '.pth',
-                        outputPath + os.sep + 'base_' + baseModel + '.pth')
-            learners.append(learn)
+            shutil.copy(path + os.sep + 'models' + os.sep + baseModel + '_' + baseBackbones[i] + '.pth',
+                        outputPath + os.sep + 'base_' + baseModel + '_' + baseBackbones[i] + '.pth')
+            del learn
+            del dls
+            gc.collect()
+            torch.cuda.empty_cache()
 
         # supervised method
         print("Start of annotation")
-        omniModelData(path, learners, transforms,size)
+        omniModelData(path, baseModels, baseBackbones, transforms, size)
         print("End of annotation")
 
         # Load new images
-        dls2 = get_dls(path, size, bs=bs)
+        dls2 = get_dls(path + '_tmp', size, bs=bs)
 
         # Load base model
         learn2 = getLearner(targetModel, targetBackbone, nClasses, path + '_tmp', dls2)
@@ -165,10 +173,14 @@ def modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone
         print("Start of target model training")
         train_learner(learn2, 50, freeze_epochs=2)
         # learn2.fine_tune(50, freeze_epochs=2)
-        learn2.save(targetModel)
-        shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '.pth',
-                    outputPath + os.sep + 'target_' + targetModel + '.pth')
+        learn2.save(targetModel + '_' + targetBackbone)
+        shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '_' + targetBackbone + '.pth',
+                    outputPath + os.sep + 'target_' + targetModel + '_' + targetBackbone + '.pth')
         shutil.rmtree(path + '_tmp')
+        del learn2
+        del dls2
+        gc.collect()
+        torch.cuda.empty_cache()
 
 def simpleTraining(baseModel, baseBackbone, path, outputPath, bs=32, size=(480,640)):
     if not testNameModel(baseModel):

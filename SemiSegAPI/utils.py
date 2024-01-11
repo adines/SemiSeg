@@ -1,3 +1,4 @@
+import gc
 import glob
 import cv2
 
@@ -98,7 +99,7 @@ def maximos(lista):
     return maximos
 
 
-def omniModel(path,learners,size=(480,640)):
+def omniModel(path,models,backbones,size=(480,640)):
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
     i = path.rfind(os.sep)
     if i != -1:
@@ -110,19 +111,34 @@ def omniModel(path,learners,size=(480,640)):
     else:
         raise Exception("The path " + newPath + " already exists")
 
+    predictions = {}
+    nClasses = numClasses(path)
+    for model, backbone in zip(models,backbones):
+        dls = get_dls(path, size, bs=2)
+        learn = getLearner(model, backbone, nClasses, path, dls)
+        learn.load(model + '_' + backbone)
+        for image in images:
+            name = image.split(os.sep)[-1]
+            if name not in predictions:
+                predictions[name]=[]
+            img = PIL.Image.open(image)
+            imag = transforms.Resize(size)(img)
+            tensor = transform_image(image=imag)
+            p = learn.model(tensor)
+            predictions[name].append(p)
+        del learn
+        del dls
+        gc.collect()
+        torch.cuda.empty_cache()
+
     for image in images:
-        lista=[]
-        name=image.split(os.sep)[-1]
-        img=PIL.Image.open(image)
-        imag = transforms.Resize(size)(img)
-        tensor = transform_image(image=imag)
-        for learn in learners:
-            p=learn.model(tensor)
-            lista.append(p)
-        prob, indices = maximos(lista)
-        newMask = getImageFromOut(indices, size,path + os.sep + 'codes.txt')
+        name = image.split(os.sep)[-1]
+        prob, indices = maximos(predictions[name])
+        newMask = getImageFromOut(indices, size, path + os.sep + 'codes.txt')
         img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'nueva_' + name)
         newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'nueva_' + name)
+    del predictions
+    gc.collect()
 
 
 def omniData(path, model,backbone, transformations, size=(480,640)):
@@ -184,7 +200,7 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
     gc.collect()
     torch.cuda.empty_cache()
 
-def omniModelData(path, learners, transformations, size):
+def omniModelData(path, models, backbones, transformations, size):
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
     i = path.rfind(os.sep)
     if i != -1:
@@ -196,17 +212,21 @@ def omniModelData(path, learners, transformations, size):
     else:
         raise Exception("The path " + newPath + " already exists")
 
-    for image in images:
-        name = image.split(os.sep)[-1]
-        img = PIL.Image.open(image)
-        imag = transforms.Resize(size)(img)
-        tensor = transform_image(image=imag)
-
-        lista = []
-
-        for learn in learners:
+    predictions = {}
+    nClasses = numClasses(path)
+    for model, backbone in zip(models,backbones):
+        dls = get_dls(path, size, bs=2)
+        learn = getLearner(model, backbone, nClasses, path, dls)
+        learn.load(model + '_' + backbone)
+        for image in images:
+            name = image.split(os.sep)[-1]
+            if name not in predictions:
+                predictions[name]=[]
+            img = PIL.Image.open(image)
+            imag = transforms.Resize(size)(img)
+            tensor = transform_image(image=imag)
             pn = learn.model(tensor)
-            lista.append(pn.cpu())
+            predictions[name].append(pn.cpu())
 
             im = cv2.imread(image, 1)
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -225,11 +245,20 @@ def omniModelData(path, learners, transformations, size):
                     else:
                         res = np.append(res, np.expand_dims(getTransformReverse(transform, p[i]), axis=0), axis=0)
                 p = np.expand_dims(res, axis=0)
-                lista.append(torch.from_numpy(p).cpu())
-        prob, indices = maximos(lista)
-        newMask = getImageFromOut(indices, size,path + os.sep + 'codes.txt')
+                predictions[name].append(torch.from_numpy(p).cpu())
+        del learn
+        del dls
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    for image in images:
+        name = image.split(os.sep)[-1]
+        prob, indices = maximos(predictions[name])
+        newMask = getImageFromOut(indices, size, path + os.sep + 'codes.txt')
         img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'nueva_' + name)
         newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'nueva_' + name)
+    del predictions
+    gc.collect()
 
 
 # Modelos
