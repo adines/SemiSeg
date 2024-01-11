@@ -23,7 +23,7 @@ def dataDistillation(baseModel, baseBackbone, targetModel, targetBackbone, trans
         # Train base learner
         print("Start of base model training")
         print('Training '+ baseModel+ ' model')
-        train_learner(learn, 5, freeze_epochs=2)
+        train_learner(learn, 20, freeze_epochs=2)
         learn.save(baseModel+'_'+baseBackbone)
 
         if not os.path.exists(outputPath):
@@ -51,7 +51,7 @@ def dataDistillation(baseModel, baseBackbone, targetModel, targetBackbone, trans
 
         # Train base learner
         print("Start of target model training")
-        train_learner(learn2, 50, freeze_epochs=2)
+        train_learner(learn2, 20, freeze_epochs=2)
         learn2.save(targetModel + '_' + targetBackbone)
         shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '_' + targetBackbone + '.pth',
                     outputPath + os.sep + 'target_' + targetModel + '_' + targetBackbone + '.pth')
@@ -87,7 +87,7 @@ def modelDistillation(baseModels, baseBackbones, targetModel, targetBackbone, pa
 
 
             # Train base learner
-            train_learner(learn, 50, freeze_epochs=2)
+            train_learner(learn, 5, freeze_epochs=2)
             learn.save(baseModel+'_'+baseBackbones[i])
             if not os.path.exists(outputPath):
                 os.makedirs(outputPath)
@@ -113,7 +113,7 @@ def modelDistillation(baseModels, baseBackbones, targetModel, targetBackbone, pa
 
         # Train base learner
         print("Start of target model training")
-        train_learner(learn2, 50, freeze_epochs=2)
+        train_learner(learn2, 20, freeze_epochs=2)
         # learn2.fine_tune(50, freeze_epochs=2)
         learn2.save(targetModel + '_' + targetBackbone)
         shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '_' + targetBackbone + '.pth',
@@ -146,7 +146,7 @@ def modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone
             learn = getLearner(baseModel, baseBackbones[i], nClasses, path, dls)
 
             # Train base learner
-            train_learner(learn, 50, freeze_epochs=2)
+            train_learner(learn, 5, freeze_epochs=2)
             # learn.fine_tune(50, freeze_epochs=2)
             learn.save(baseModel + '_' + baseBackbones[i])
             if not os.path.exists(outputPath):
@@ -171,7 +171,7 @@ def modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone
 
         # Train base learner
         print("Start of target model training")
-        train_learner(learn2, 50, freeze_epochs=2)
+        train_learner(learn2, 20, freeze_epochs=2)
         # learn2.fine_tune(50, freeze_epochs=2)
         learn2.save(targetModel + '_' + targetBackbone)
         shutil.copy(path + '_tmp' + os.sep + 'models' + os.sep + targetModel + '_' + targetBackbone + '.pth',
@@ -195,7 +195,7 @@ def simpleTraining(baseModel, baseBackbone, path, outputPath, bs=32, size=(480,6
 
         # Train base learner
         print("Start of model training")
-        train_learner(learn, 50, freeze_epochs=2)
+        train_learner(learn, 20, freeze_epochs=2)
         # learn.fine_tune(50, freeze_epochs=2)
         learn.save(baseModel)
         if not os.path.exists(outputPath):
