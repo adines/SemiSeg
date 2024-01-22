@@ -21,6 +21,7 @@ from SemiSegAPI.architectures import FPENet
 from SemiSegAPI.architectures import OCNet
 from SemiSegAPI.architectures import LEDNet
 from SemiSegAPI.architectures import UNet
+from tqdm import tqdm_notebook as tqdm
 
 from albumentations import (
     Compose,
@@ -37,6 +38,15 @@ from albumentations import (
 )
 
 
+try:
+    shell = get_ipython().__class__.__name__
+    if shell == 'ZMQInteractiveShell':
+        from tqdm import tqdm_notebook as tqdm
+    else:
+        from tqdm import tqdm
+except NameError:
+    from tqdm import tqdm
+
 availableModels=['CGNet', 'FPENet', 'DeepLab','PAN','OCNet','MAnet','LEDNet','DenseASPP','U-Net','HRNet']
 availableTransforms=['H Flip','V Flip','H+V Flip','Blurring','Gamma','Gaussian Blur','Median Blur','Bilateral Filter','Equalize histogram','2D-Filter']
 
@@ -44,10 +54,7 @@ def testNameModel(model):
     return model in availableModels
 
 def testPath(path):
-    if os.path.isdir(path+os.sep+'Images'+os.sep+'train') and os.path.isdir(path+os.sep+'Images'+os.sep+'valid') and os.path.isdir(path+os.sep+'Labels'+os.sep+'train') and os.path.isdir(path+os.sep+'Labels'+os.sep+'valid'):
-        return True
-    else:
-        return False
+    return os.path.isdir(path+os.sep+'Images'+os.sep+'train') and os.path.isdir(path+os.sep+'Images'+os.sep+'valid') and os.path.isdir(path+os.sep+'Labels'+os.sep+'train') and os.path.isdir(path+os.sep+'Labels'+os.sep+'valid')
 
 def testTransforms(transforms):
     for transform in transforms:
@@ -56,15 +63,15 @@ def testTransforms(transforms):
     return True
 
 
-def transform_image(image):
+def transformImage(image):
     my_transforms = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize(
                                             [0.485, 0.456, 0.406],
                                             [0.229, 0.224, 0.225])])
     image_aux = image
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    return my_transforms(image_aux).unsqueeze(0)#.to(device)
+    return my_transforms(image_aux).unsqueeze(0).to(device)
 
 
 def getImageFromOut(output,size,codesFile):
@@ -87,16 +94,16 @@ def getTransformReverse(transform, image):
         return cv2.flip(image,-1)
     else: return image
 
-# distillation
-def maximos(lista):
+
+def averageVotingEnsemble(predictions):
     softOutput=torch.nn.Softmax(1)
-    output=softOutput(lista[0])
-    for l in lista:
+    output=softOutput(predictions[0])
+    for l in predictions:
         output=output+softOutput(l)
-    output=output-softOutput(lista[0])
-    output=output/len(lista)
-    maximos = torch.max(output,1)
-    return maximos
+    output=output-softOutput(predictions[0])
+    output=output/len(predictions)
+    finalPredictions = torch.max(output,1)
+    return finalPredictions
 
 
 def omniModel(path,models,backbones,size=(480,640)):
@@ -112,18 +119,21 @@ def omniModel(path,models,backbones,size=(480,640)):
         raise Exception("The path " + newPath + " already exists")
 
     predictions = {}
-    nClasses = numClasses(path)
+    nClasses = getNumClasses(path)
     for model, backbone in zip(models,backbones):
         dls = get_dls(path, size, bs=2)
         learn = getLearner(model, backbone, nClasses, path, dls)
-        learn.load(model + '_' + backbone)
-        for image in images:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        learn.load(model + '_' + backbone,device=device,with_opt=False)
+        learn.model.to(device)
+        print('Processing images with ' + model + ' model')
+        for image in tqdm(images):
             name = image.split(os.sep)[-1]
             if name not in predictions:
                 predictions[name]=[]
             img = PIL.Image.open(image)
             imag = transforms.Resize(size)(img)
-            tensor = transform_image(image=imag)
+            tensor = transformImage(image=imag)
             p = learn.model(tensor)
             predictions[name].append(p)
         del learn
@@ -131,22 +141,24 @@ def omniModel(path,models,backbones,size=(480,640)):
         gc.collect()
         torch.cuda.empty_cache()
 
-    for image in images:
+    print('Annotating images')
+    for image in tqdm(images):
         name = image.split(os.sep)[-1]
-        prob, indices = maximos(predictions[name])
+        prob, indices = averageVotingEnsemble(predictions[name])
         newMask = getImageFromOut(indices, size, path + os.sep + 'codes.txt')
-        img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'nueva_' + name)
-        newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'nueva_' + name)
+        img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'new_' + name)
+        newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'new_' + name)
     del predictions
     gc.collect()
 
 
 def omniData(path, model,backbone, transformations, size=(480,640)):
     dls = get_dls(path, size, bs=2)
-    nClasses = numClasses(path)
+    nClasses = getNumClasses(path)
     learn = getLearner(model, backbone, nClasses, path, dls)
-    # learn.load(model + '_' + backbone)
-    learn.load(model+'_'+backbone)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    learn.load(model + '_' + backbone,device=device,with_opt=False)
+    learn.model.to(device)
 
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
     i = path.rfind(os.sep)
@@ -159,13 +171,12 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
     else:
         raise Exception("The path " + newPath + " already exists")
 
-    learn.eval()
-
-    for image in images:
+    print('Processing images with ' + model + ' model')
+    for image in tqdm(images):
         name = image.split(os.sep)[-1]
         img = PIL.Image.open(image)
         imag = transforms.Resize(size)(img)
-        tensor = transform_image(image=imag)
+        tensor = transformImage(image=imag)
 
         lista = []
 
@@ -179,7 +190,7 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
             img = getTransform(transform, im)
             img = PIL.Image.fromarray(img)
             imag = transforms.Resize(size)(img)
-            tensor = transform_image(image=imag)
+            tensor = transformImage(image=imag)
             p = learn.model(tensor)
             p = np.asarray(p.cpu().detach())
             p=p[0]
@@ -191,11 +202,11 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
                     res=np.append(res, np.expand_dims(getTransformReverse(transform, p[i]),axis=0), axis=0)
             p=np.expand_dims(res, axis=0)
             lista.append(torch.from_numpy(p).cpu())
-        prob, indices = maximos(lista)
+        prob, indices = averageVotingEnsemble(lista)
         newMask = getImageFromOut(indices,size,path + os.sep + 'codes.txt')
 
-        img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'nueva_' + name)
-        newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'nueva_' + name)
+        img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'new_' + name)
+        newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'new_' + name)
     del learn
     del dls
     gc.collect()
@@ -214,18 +225,21 @@ def omniModelData(path, models, backbones, transformations, size):
         raise Exception("The path " + newPath + " already exists")
 
     predictions = {}
-    nClasses = numClasses(path)
+    nClasses = getNumClasses(path)
     for model, backbone in zip(models,backbones):
         dls = get_dls(path, size, bs=2)
         learn = getLearner(model, backbone, nClasses, path, dls)
-        learn.load(model + '_' + backbone)
-        for image in images:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        learn.load(model + '_' + backbone,device=device,with_opt=False)
+        learn.model.to(device)
+        print('Processing images with ' + model + ' model')
+        for image in tqdm(images):
             name = image.split(os.sep)[-1]
             if name not in predictions:
                 predictions[name]=[]
             img = PIL.Image.open(image)
             imag = transforms.Resize(size)(img)
-            tensor = transform_image(image=imag)
+            tensor = transformImage(image=imag)
             pn = learn.model(tensor)
             predictions[name].append(pn.cpu())
 
@@ -235,7 +249,7 @@ def omniModelData(path, models, backbones, transformations, size):
                 img = getTransform(transform, im)
                 img = PIL.Image.fromarray(img)
                 imag = transforms.Resize(size)(img)
-                tensor = transform_image(image=imag)
+                tensor = transformImage(image=imag)
                 p = learn.model(tensor)
                 p = np.asarray(p.cpu().detach())
                 p = p[0]
@@ -252,17 +266,18 @@ def omniModelData(path, models, backbones, transformations, size):
         gc.collect()
         torch.cuda.empty_cache()
 
-    for image in images:
+    print('Annotating images')
+    for image in tqdm(images):
         name = image.split(os.sep)[-1]
-        prob, indices = maximos(predictions[name])
+        prob, indices = averageVotingEnsemble(predictions[name])
         newMask = getImageFromOut(indices, size, path + os.sep + 'codes.txt')
-        img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'nueva_' + name)
-        newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'nueva_' + name)
+        img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'new_' + name)
+        newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'new_' + name)
     del predictions
     gc.collect()
 
 
-# Modelos
+# Models
 def create_denseaspp(backbone,numClasses):
     return DenseASPP(backbone_name=backbone, nclass=numClasses)
 
@@ -430,7 +445,7 @@ def transformPipeline():
     transforms = SegmentationAlbumentationsTransform(transforms)
     return transforms
 
-def numClasses(path):
+def getNumClasses(path):
     return np.loadtxt(path +os.sep+ 'codes.txt', dtype=str).size
 
 
