@@ -1,5 +1,5 @@
 numpy==1.13.3
-fastai==1.0.52
+fastai>=2.7.13
 opencv_python==4.1.2.30
 setuptools==39.0.1
 tqdm==4.30.0

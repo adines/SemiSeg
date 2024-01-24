@@ -108,11 +108,7 @@ def averageVotingEnsemble(predictions):
 
 def omniModel(path,models,backbones,size=(480,640)):
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
-    i = path.rfind(os.sep)
-    if i != -1:
-        newPath = path[:i] + "_tmp"
-    else:
-        newPath = path + "_tmp"
+    newPath = path + "_tmp"
     if not os.path.exists(newPath):
         shutil.copytree(path, newPath)
     else:
@@ -161,11 +157,7 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
     learn.model.to(device)
 
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
-    i = path.rfind(os.sep)
-    if i != -1:
-        newPath = path[:i] + "_tmp"
-    else:
-        newPath = path + "_tmp"
+    newPath = path + "_tmp"
     if not os.path.exists(newPath):
         shutil.copytree(path, newPath)
     else:
@@ -214,11 +206,7 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
 
 def omniModelData(path, models, backbones, transformations, size):
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
-    i = path.rfind(os.sep)
-    if i != -1:
-        newPath = path[:i] + "_tmp"
-    else:
-        newPath = path + "_tmp"
+    newPath = path + "_tmp"
     if not os.path.exists(newPath):
         shutil.copytree(path, newPath)
     else:
