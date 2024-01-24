@@ -117,11 +117,15 @@ def omniModel(path,models,backbones,size=(480,640)):
     predictions = {}
     nClasses = getNumClasses(path)
     for model, backbone in zip(models,backbones):
-        dls = get_dls(path, size, bs=2)
+        dls = get_dls(path, size, bs=1)
         learn = getLearner(model, backbone, nClasses, path, dls)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         learn.load(model + '_' + backbone,device=device,with_opt=False)
         learn.model.to(device)
+        del dls
+        gc.collect()
+        torch.cuda.empty_cache()
+
         print('Processing images with ' + model + ' model')
         for image in tqdm(images):
             name = image.split(os.sep)[-1]
@@ -131,9 +135,10 @@ def omniModel(path,models,backbones,size=(480,640)):
             imag = transforms.Resize(size)(img)
             tensor = transformImage(image=imag)
             p = learn.model(tensor)
-            predictions[name].append(p)
+            predictions[name].append(p.cpu().detach())
+            gc.collect()
+            torch.cuda.empty_cache()
         del learn
-        del dls
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -146,15 +151,20 @@ def omniModel(path,models,backbones,size=(480,640)):
         newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'new_' + name)
     del predictions
     gc.collect()
+    torch.cuda.empty_cache()
 
 
 def omniData(path, model,backbone, transformations, size=(480,640)):
-    dls = get_dls(path, size, bs=2)
+    dls = get_dls(path, size, bs=1)
     nClasses = getNumClasses(path)
     learn = getLearner(model, backbone, nClasses, path, dls)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     learn.load(model + '_' + backbone,device=device,with_opt=False)
     learn.model.to(device)
+
+    del dls
+    gc.collect()
+    torch.cuda.empty_cache()
 
     images = sorted(glob.glob(path+os.sep+'unlabeled_images' + os.sep + "*"))
     newPath = path + "_tmp"
@@ -173,7 +183,7 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
         lista = []
 
         pn = learn.model(tensor)
-        lista.append(pn.cpu())
+        lista.append(pn.cpu().detach())
 
         im = cv2.imread(image, 1)
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -193,14 +203,17 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
                 else:
                     res=np.append(res, np.expand_dims(getTransformReverse(transform, p[i]),axis=0), axis=0)
             p=np.expand_dims(res, axis=0)
-            lista.append(torch.from_numpy(p).cpu())
+            lista.append(torch.from_numpy(p).cpu().detach())
+            gc.collect()
+            torch.cuda.empty_cache()
         prob, indices = averageVotingEnsemble(lista)
         newMask = getImageFromOut(indices,size,path + os.sep + 'codes.txt')
 
         img.save(newPath + os.sep + 'Images' + os.sep + 'train' + os.sep + 'new_' + name)
         newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'new_' + name)
+        gc.collect()
+        torch.cuda.empty_cache()
     del learn
-    del dls
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -215,11 +228,14 @@ def omniModelData(path, models, backbones, transformations, size):
     predictions = {}
     nClasses = getNumClasses(path)
     for model, backbone in zip(models,backbones):
-        dls = get_dls(path, size, bs=2)
+        dls = get_dls(path, size, bs=1)
         learn = getLearner(model, backbone, nClasses, path, dls)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         learn.load(model + '_' + backbone,device=device,with_opt=False)
         learn.model.to(device)
+        del dls
+        gc.collect()
+        torch.cuda.empty_cache()
         print('Processing images with ' + model + ' model')
         for image in tqdm(images):
             name = image.split(os.sep)[-1]
@@ -229,7 +245,7 @@ def omniModelData(path, models, backbones, transformations, size):
             imag = transforms.Resize(size)(img)
             tensor = transformImage(image=imag)
             pn = learn.model(tensor)
-            predictions[name].append(pn.cpu())
+            predictions[name].append(pn.cpu().detach())
 
             im = cv2.imread(image, 1)
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -248,9 +264,10 @@ def omniModelData(path, models, backbones, transformations, size):
                     else:
                         res = np.append(res, np.expand_dims(getTransformReverse(transform, p[i]), axis=0), axis=0)
                 p = np.expand_dims(res, axis=0)
-                predictions[name].append(torch.from_numpy(p).cpu())
+                predictions[name].append(torch.from_numpy(p).cpu().detach())
+            gc.collect()
+            torch.cuda.empty_cache()
         del learn
-        del dls
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -263,6 +280,7 @@ def omniModelData(path, models, backbones, transformations, size):
         newMask.save(newPath + os.sep + 'Labels' + os.sep + 'train' + os.sep + 'new_' + name)
     del predictions
     gc.collect()
+    torch.cuda.empty_cache()
 
 
 # Models
