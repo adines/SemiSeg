@@ -121,6 +121,7 @@ def omniModel(path,models,backbones,size=(480,640)):
         learn = getLearner(model, backbone, nClasses, path, dls)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         learn.load(model + '_' + backbone,device=device,with_opt=False)
+        learn.model.eval()
         learn.model.to(device)
         del dls
         gc.collect()
@@ -160,6 +161,7 @@ def omniData(path, model,backbone, transformations, size=(480,640)):
     learn = getLearner(model, backbone, nClasses, path, dls)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     learn.load(model + '_' + backbone,device=device,with_opt=False)
+    learn.model.eval()
     learn.model.to(device)
 
     del dls
@@ -232,6 +234,7 @@ def omniModelData(path, models, backbones, transformations, size):
         learn = getLearner(model, backbone, nClasses, path, dls)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         learn.load(model + '_' + backbone,device=device,with_opt=False)
+        learn.model.eval()
         learn.model.to(device)
         del dls
         gc.collect()
