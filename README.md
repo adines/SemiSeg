@@ -29,7 +29,7 @@ We have studied the behaviour of 10 different semantic segmentation networks
 
 
 ## Distillation methods
-we will compare three different methods:Data Distillation, Model Distillation and Data & Model Distillation; these methods are based on the notions of self-training and distillation.
+We will compare three different methods:Data Distillation, Model Distillation and Data & Model Distillation; these methods are based on the notions of self-training and distillation.
 
 ### Data Distillation
 In the case of Data Distillation, (1) a base model is trained, (2) this model is used to label new images using multiple transformations of the image, and (3) a new model is trained in both, the initial labelled images and the automatically annotated images in (2).
@@ -40,6 +40,17 @@ dataDistillation(baseModel, baseBackbone, targetModel, targetBackbone, transform
 
 ![workflow](assets/DataDistillation.svg)
 
+**Parameters:**
++ baseModel (str): String with the name of the base segmentation architecture to be used to perform data distillation.
++ baseBackbone (str): String with the name of the base backbone architecture to be used to perform data distillation.
++ targetModel (str): String with the name of the segmentation architecture that will be trained at the end of the process.
++ targetBackbone (str): String with the name of the bacbone architecture that will be trained at the end of the process.
++ transforms (list\[str\]): List with the names of the different transformations to be applied to the images in the data distillation.
++ path (str): String with the path to the labelled images.
++ outputath (str): String with the path where the target model will be saved.
++ bs (int): Batch size of images used in training the models.
++ size ((int,int)): Image size used for model training.
+
 ### Model Distillation
 In the case of Model Distillation (1) several models are trained in the initial annotated images, (2) these model are ensembled to label new images, and (3) a new model is trained in both, the initial labelled images and the automatically annotated images in (2).
 
@@ -47,7 +58,19 @@ In the case of Model Distillation (1) several models are trained in the initial 
 modelDistillation(baseModels, baseBackbones, targetModel, targetBackbone, path, outputPath, bs, size)
 ```
 
+
 ![workflow](assets/ModelDistillation.svg)
+
+**Parameters:**
++ baseModels (ist\[str\]): List with the names of the base segmentation architectures to be used to perform model distillation.
++ baseBackbones (list\[str\]): List with the name of the base backbone architectures to be used to perform model distillation.
++ targetModel (str): String with the name of the segmentation architecture that will be trained at the end of the process.
++ targetBackbone (str): String with the name of the bacbone architecture that will be trained at the end of the process.
++ path (str): String with the path to the labelled images.
++ outputath (str): String with the path where the target model will be saved.
++ bs (int): Batch size of images used in training the models.
++ size ((int,int)): Image size used for model training.
+
 
 ### Data & Model Distillation
 Both techniques can also be combined in a technique called Data & Model Distillation.
@@ -58,6 +81,16 @@ modelDataDistillation(baseModels, baseBackbones, targetModel, targetBackbone, tr
 
 ![workflow](assets/DataModelDistillation.svg)
 
+**Parameters:**
++ baseModels (ist\[str\]): List with the names of the base segmentation architectures to be used to perform model distillation.
++ baseBackbones (list\[str\]): List with the name of the base backbone architectures to be used to perform model distillation..
++ targetModel (str): String with the name of the segmentation architecture that will be trained at the end of the process.
++ targetBackbone (str): String with the name of the bacbone architecture that will be trained at the end of the process.
++ transforms (list\[str\]): List with the names of the different transformations to be applied to the images in the data distillation.
++ path (str): String with the path to the labelled images.
++ outputath (str): String with the path where the target model will be saved.
++ bs (int): Batch size of images used in training the models.
++ size ((int,int)): Image size used for model training.
 
 ## Datasets
 In this work, we propose a benchmark of 3 biomedical datasets. 
